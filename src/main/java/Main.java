@@ -5,6 +5,7 @@ import com.jogamp.opengl.util.FPSAnimator;
 import utils.Cmyk;
 import utils.ColorConverter;
 import utils.GradientPainter;
+import utils.Hsv;
 
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
@@ -26,9 +27,13 @@ public class Main {
     private static final JTextField cmykMagenta = new JTextField();
     private static final JTextField cmykYellow = new JTextField();
     private static final JTextField cmykBlack = new JTextField();
+    private static final JTextField hsvHue = new JTextField();
+    private static final JTextField hsvSaturation = new JTextField();
+    private static final JTextField hsvValue = new JTextField();
     private static final List<JTextField> rgbFields = List.of(rgbRed, rgbGreen, rgbBlue);
     private static final List<JTextField> cmykFields =
             List.of(cmykCyan, cmykMagenta, cmykYellow, cmykBlack);
+    private static final List<JTextField> hsvFields = List.of(hsvHue, hsvSaturation, hsvValue);
     static Icon previewIcon = new PreviewIcon();
     static final JLabel previewLabel = new JLabel(previewIcon);
     static Icon pickerIcon = new PickerIcon();
@@ -38,13 +43,12 @@ public class Main {
     private static JSlider jSlider;
     private static Point selector = new Point(75, 75);
     private static Cmyk colorCmyk;
+    private static Hsv colorHsv;
 
     public static void updateRgb() {
         rgbRed.setText(String.valueOf(previewColor.getRed()));
         rgbGreen.setText(String.valueOf(previewColor.getGreen()));
         rgbBlue.setText(String.valueOf(previewColor.getBlue()));
-        System.out.println(
-                previewColor.getRed() + " + " + previewColor.getGreen() + "  " + previewColor.getBlue());
     }
 
     public static void updateCmyk() {
@@ -56,6 +60,13 @@ public class Main {
         CubeLibre.setR(previewColor.getRed());
         CubeLibre.setG(previewColor.getGreen());
         CubeLibre.setB(previewColor.getBlue());
+    }
+
+    public static void updateHsv() {
+        colorHsv = ColorConverter.convertToHsv(previewColor);
+        hsvHue.setText(String.valueOf(Math.round(colorHsv.getHue())));
+        hsvSaturation.setText(String.valueOf(Math.round(colorHsv.getSaturation())));
+        hsvValue.setText(String.valueOf(Math.round(colorHsv.getValue())));
     }
 
     public static Cmyk readCmyk() {
@@ -71,6 +82,16 @@ public class Main {
                 Double.parseDouble(text1) / 100,
                 Double.parseDouble(text2) / 100,
                 Double.parseDouble(text3) / 100);
+    }
+
+    public static Hsv readHsv() {
+        final String hue = hsvHue.getText();
+        final String saturation = hsvSaturation.getText();
+        final String value = hsvValue.getText();
+        return new Hsv(
+                Double.parseDouble(hue),
+                Double.parseDouble(saturation),
+                Double.parseDouble(value));
     }
 
     public static void main(String[] args) {
@@ -97,7 +118,7 @@ public class Main {
         labels.add(pickerLabel);
         ColorUpdater colorUpdater = new ColorUpdater(labels);
         JPanel textFields = new JPanel();
-        textFields.setLayout(new GridLayout(2, 8, 1, 1));
+        textFields.setLayout(new GridLayout(3, 8, 1, 1));
 
         JLabel redLabel = new JLabel("R");
         textFields.add(redLabel);
@@ -137,6 +158,21 @@ public class Main {
         cmykBlack.addKeyListener(new TextFieldUpdater());
         textFields.add(cmykBlack);
 
+        JLabel hueLabel = new JLabel("H");
+        textFields.add(hueLabel);
+        hsvHue.addKeyListener(new TextFieldUpdater());
+        textFields.add(hsvHue);
+
+        JLabel saturationLabel = new JLabel("S");
+        textFields.add(saturationLabel);
+        hsvSaturation.addKeyListener(new TextFieldUpdater());
+        textFields.add(hsvSaturation);
+
+        JLabel valueLabel = new JLabel("V");
+        textFields.add(valueLabel);
+        hsvValue.addKeyListener(new TextFieldUpdater());
+        textFields.add(hsvValue);
+
         window.add(frame);
         jSlider = new JSlider(JSlider.HORIZONTAL, 0, 100, 0);
         window.add(jSlider);
@@ -146,6 +182,7 @@ public class Main {
         window.add(previewLabel);
         window.add(textFields);
         updateRgb();
+        updateHsv();
         updateCmyk();
 
         pickerLabel.addMouseListener(
@@ -158,6 +195,7 @@ public class Main {
                             labels.forEach(JLabel::repaint);
                             updateRgb();
                             updateCmyk();
+                            updateHsv();
                         }
                     }
                 });
@@ -172,10 +210,26 @@ public class Main {
                             labels.forEach(JLabel::repaint);
                             updateRgb();
                             updateCmyk();
+                            updateHsv();
                         }
                     }
                 });
+        glcanvas.addKeyListener(new KeyListener() {
+            @Override
+            public void keyTyped(KeyEvent e) {
 
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+                moveCube(e.getKeyChar());
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+
+            }
+        });
         window.setSize(new Dimension(1200, 500));
         window.setVisible(true);
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -209,6 +263,7 @@ public class Main {
             labels.forEach(JLabel::repaint);
             updateRgb();
             updateCmyk();
+            updateHsv();
         }
 
         private void calculateColor() {
@@ -259,6 +314,7 @@ public class Main {
                 color = new Color(previewColor.getRed(), previewColor.getGreen(), previewColor.getBlue());
                 colorCmyk = ColorConverter.convertToCmyk(previewColor);
                 updateCmyk();
+                updateHsv();
                 previewLabel.repaint();
                 pickerLabel.repaint();
             } else if (cmykFields.contains(((JTextField) e.getSource()))) {
@@ -266,8 +322,35 @@ public class Main {
                 previewColor = ColorConverter.convertToRgb(colorCmyk);
                 color = new Color(previewColor.getRed(), previewColor.getGreen(), previewColor.getBlue());
                 updateRgb();
+                updateHsv();
                 previewLabel.repaint();
                 pickerLabel.repaint();
+            } else if (hsvFields.contains(((JTextField) e.getSource()))) {
+                colorHsv = readHsv();
+                previewColor = ColorConverter.convertHsvToRgb(colorHsv);
+                color = new Color(previewColor.getRed(), previewColor.getGreen(), previewColor.getBlue());
+                updateRgb();
+                updateCmyk();
+                previewLabel.repaint();
+                pickerLabel.repaint();
+            }
+        }
+    }
+
+    private static void moveCube(char keyChar) {
+        if (keyChar == 'w' || keyChar == 's') {
+            if (keyChar == 'w') {
+                CubeLibre.setAngleHorizontal(15.0f);
+            } else {
+                CubeLibre.setAngleHorizontal(-15.0f);
+            }
+        }
+        if (keyChar == 'a' || keyChar == 'd') {
+            if (keyChar == 'a') {
+                CubeLibre.setAngleVertical(-15.0f);
+            } else {
+                CubeLibre.setAngleVertical(15.0f);
+
             }
         }
     }
